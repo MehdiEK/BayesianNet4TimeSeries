@@ -2,12 +2,14 @@
 Version v0 of the custom model
 
 Creation date: 11/02/2024
-Last modification: 11/02/2024
+Last modification: 22/02/2024
 By: Mehdi EL KANSOULI 
 """
 
 import numpy as np 
 import pandas as pd 
+
+from pgmpy.inference import DBNInference
 
 
 class DumbDiscretizer(object):
@@ -146,6 +148,43 @@ class DumbDiscretizer(object):
 
         return x_discretized
 
+
+class CustomDBNInference(DBNInference):
+    """
+    Custom tool to make inference using the DBN easier. 
+    """
+
+    def __init__(self, dbn, discretizer):
+        """
+        Initialization of the class.
+
+        :params dbn: pgmpy.models.DynamicBayesianNetowrk
+            Trained dynamic bayesian network 
+        :params discretizer: DumbDiscretizer object (for now)
+            Discretizer tool use to create index with a reverse index function  
+        """
+        # call init method of DBNInference
+        super().__init__(dbn)
+
+        # additional setup
+        self.discretizer = discretizer
+
+    def make_pred(self, var_name, forecast_step, evidence):
+        """
+        Make prediction on variable var_name given a forecast step and 
+        evidence. 
+
+        :params var_name: str 
+            Names of variables names, columns to forecast. 
+        :params forecast_step: int 
+            Nb of time steps to forecast
+        :params evidence: dictionary 
+
+        :return list
+            Sequence forecasted by the model.
+        """
+        pass
+    
 
 def pgmpy_friendly_transformer(df, sliding_window):
     """
