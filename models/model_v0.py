@@ -33,6 +33,9 @@ class DumbDiscretizer(object):
         self.df = df.copy()  # orignal dataframe
         self.nb_classes = nb_classes  # nb of classes to create
 
+        # set a nb of classes by default if not provided in nb_classes
+        self.default_nb = int(round(np.sqrt(self.df.shape[0])))  
+
         # extrema of time series 
         self.extrema = df.agg(['min', 'max']).to_dict() 
 
@@ -65,7 +68,7 @@ class DumbDiscretizer(object):
         # extract min and max
         min_, max_ = self.extrema.get(column_name).values()
         nb_class = self.nb_classes.get(column_name, 
-                                       int(round(np.sqrt(self.df.shape[0]))))
+                                       self.default_nb)
 
         # used mapper
         step = (max_ - min_) / nb_class
@@ -121,7 +124,7 @@ class DumbDiscretizer(object):
         # extract min and max
         min_, max_ = self.extrema.get(column_name).values()
         nb_class = self.nb_classes.get(column_name, 
-                                       int(round(np.sqrt(self.df.shape[0]))))
+                                       self.default_nb)
 
         # used mapper for discretization
         step = (max_ - min_) / nb_class
@@ -173,17 +176,61 @@ class CustomDBNInference(DBNInference):
         """
         Make prediction on variable var_name given a forecast step and 
         evidence. 
+        Asset of this function is that it performs discretization, indexation
+        and reverse indexation by itself.
+        Warning, it consider value of var_name is not given a time t=0. 
+        Thus, it computes from var_name(t=0) to var_name(t=forecast_step-1) 
+        i.e. forecast_step values. 
 
         :params var_name: str 
             Names of variables names, columns to forecast. 
         :params forecast_step: int 
             Nb of time steps to forecast
         :params evidence: dictionary 
+            Format must be the one required by pgmpy. Must contain data
+            not already dscretized
 
         :return list
             Sequence forecasted by the model.
         """
-        pass
+        # create list of variables 
+        variables = [(var_name, t) for t in range(forecast_step)]
+
+        # indexation of evidence
+        evidence = {key: self.discretizer.indexer(key[0], value)
+                    for key, value in evidence.items()}
+
+        # get results of forward forecasting 
+        results = self.forward_inference(
+            variables=variables, 
+            evidence=evidence
+        )
+
+        # get original value from discretization 
+        """default_nb_classes = self.discretizer.default_nb
+        nb_classes = self.discretizer.nb_classes.get(var_name, 
+                                                     default_nb_classes)
+        x_ = [self.discretizer.reverse_indexer(column_name=var_name, ind=i) 
+              for i in range(nb_classes)]"""
+        
+        # initialization of forecast values 
+        pred = [None] * forecast_step
+        
+        for t in range(forecast_step):
+
+            # get forecasted proba
+            proba = results[(var_name, t)].values
+            
+            # in order to do it only once (ugly but no choice right now)
+            if t == 0:
+                # get discretized value from index
+                x_ = [self.discretizer.reverse_indexer(column_name=var_name, 
+                                                       ind=i) 
+                      for i in range(len(proba))]
+                
+            pred.append(np.dot(x_, proba))
+
+        return pred            
     
 
 def pgmpy_friendly_transformer(df, sliding_window):
