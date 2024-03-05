@@ -172,7 +172,7 @@ class CustomDBNInference(DBNInference):
         # additional setup
         self.discretizer = discretizer
 
-    def make_pred(self, var_name, forecast_step, evidence):
+    def make_pred(self, var_name, forecast_step, evidence, method="PM"):
         """
         Make prediction on variable var_name given a forecast step and 
         evidence. 
@@ -188,13 +188,14 @@ class CustomDBNInference(DBNInference):
             Nb of time steps to forecast
         :params evidence: dictionary 
             Format must be the one required by pgmpy. Must contain data
-            not already dscretized
+            not already dscretized. Better if provide only one time slice 
+            for one-order markov model.
 
         :return list
             Sequence forecasted by the model.
         """
         # create list of variables 
-        variables = [(var_name, t) for t in range(forecast_step)]
+        variables = [(var_name, t) for t in range(1, forecast_step+1)]
 
         # indexation of evidence
         evidence = {key: self.discretizer.indexer(key[0], value)
@@ -216,19 +217,19 @@ class CustomDBNInference(DBNInference):
         # initialization of forecast values 
         pred = [None] * forecast_step
         
-        for t in range(forecast_step):
+        for t in range(1, forecast_step+1):
 
             # get forecasted proba
             proba = results[(var_name, t)].values
+
+            # ugly but no choice
+            x_ = [self.discretizer.reverse_indexer(column_name=var_name, ind=i) 
+                for i in range(len(proba))]
             
-            # in order to do it only once (ugly but no choice right now)
-            if t == 0:
-                # get discretized value from index
-                x_ = [self.discretizer.reverse_indexer(column_name=var_name, 
-                                                       ind=i) 
-                      for i in range(len(proba))]
-                
-            pred.append(np.dot(x_, proba))
+            if method == "PM":
+                pred[t-1] = np.dot(x_, proba)
+            elif method == "MAP":
+                pred[t-1] = x_[np.argmax(proba)]
 
         return pred            
     
