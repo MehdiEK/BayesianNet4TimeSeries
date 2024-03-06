@@ -234,6 +234,8 @@ class CustomDBNInference(DBNInference):
                 pred[t] = np.dot(x_, proba)
             elif method == "MAP":
                 pred[t] = x_[np.argmax(proba)]
+            else: 
+                raise "This estimator is unknown or not implemented yet"
 
         return pred            
     
