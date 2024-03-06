@@ -147,7 +147,8 @@ class DumbDiscretizer(object):
         # get step used for discretization
         step = (max_ - min_) / nb_class
 
-        x_discretized = self._reverse_indexer[column_name].get(ind) * step
+        x_discretized = self._reverse_indexer[column_name].get(ind) * step  
+        x_discretized += step / 2  # default value is middle of interval
 
         return x_discretized
 
@@ -172,7 +173,8 @@ class CustomDBNInference(DBNInference):
         # additional setup
         self.discretizer = discretizer
 
-    def make_pred(self, var_name, forecast_step, evidence, method="PM"):
+    def make_pred(self, var_name, forecast_step, evidence, method="PM",
+                  verbose=False):
         """
         Make prediction on variable var_name given a forecast step and 
         evidence. 
@@ -195,41 +197,43 @@ class CustomDBNInference(DBNInference):
             Sequence forecasted by the model.
         """
         # create list of variables 
-        variables = [(var_name, t) for t in range(1, forecast_step+1)]
+        variables = [(var_name, t) for t in range(0, forecast_step)]
 
         # indexation of evidence
         evidence = {key: self.discretizer.indexer(key[0], value)
                     for key, value in evidence.items()}
+        
+        if verbose: 
+            print("Evidence: ", evidence)
+            print("Variables: ", variables)
 
         # get results of forward forecasting 
         results = self.forward_inference(
             variables=variables, 
             evidence=evidence
         )
-
-        # get original value from discretization 
-        """default_nb_classes = self.discretizer.default_nb
-        nb_classes = self.discretizer.nb_classes.get(var_name, 
-                                                     default_nb_classes)
-        x_ = [self.discretizer.reverse_indexer(column_name=var_name, ind=i) 
-              for i in range(nb_classes)]"""
         
         # initialization of forecast values 
-        pred = [None] * forecast_step
+        pred = [0] * forecast_step
         
-        for t in range(1, forecast_step+1):
+        for t in range(0, forecast_step):
 
             # get forecasted proba
             proba = results[(var_name, t)].values
+            if verbose: 
+                print("Proba: ", proba, "\n")
 
             # ugly but no choice
-            x_ = [self.discretizer.reverse_indexer(column_name=var_name, ind=i) 
-                for i in range(len(proba))]
+            if t == 0:
+                x_ = [self.discretizer.reverse_indexer(column_name=var_name, 
+                                                       ind=i) 
+                      for i in range(len(proba))]
+                x_ = np.array(x_)
             
             if method == "PM":
-                pred[t-1] = np.dot(x_, proba)
+                pred[t] = np.dot(x_, proba)
             elif method == "MAP":
-                pred[t-1] = x_[np.argmax(proba)]
+                pred[t] = x_[np.argmax(proba)]
 
         return pred            
     
