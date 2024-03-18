@@ -257,7 +257,7 @@ def pgmpy_friendly_transformer(df, sliding_window):
     nb_points, nb_var = df.shape
 
     # convert dataframe into dictionary 
-    df_dico = df.to_dict()
+    df_dico = df.reset_index().to_dict()
 
     # construct dataframe as required by DBN class
     matrix = np.zeros((nb_points-sliding_window-1, nb_var*sliding_window)) 
