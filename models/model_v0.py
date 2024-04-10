@@ -2,7 +2,7 @@
 Version v0 of the custom model
 
 Creation date: 11/02/2024
-Last modification: 22/02/2024
+Last modification: 09/04/2024
 By: Mehdi EL KANSOULI 
 """
 
@@ -21,20 +21,24 @@ class DumbDiscretizer(object):
 
     def __init__(self, df, nb_classes={}):
         """
-        Initialization of the class.
+        Initialization of the class. Note that only columns in nb_classes will be 
+        transformed. By default, all columns are transformed. 
 
         :params df: pd.DataFrame
             Dataframe to discretize 
-        :params nb_classes: dict, default=empty
+        :params nb_classes: dict, default={}
             Dictionary with columns for keys and nb of classes to make.
             If dictionary is empty, log(n) classes are constructed.
             for values. 
         """
         self.df = df.copy()  # orignal dataframe
-        self.nb_classes = nb_classes  # nb of classes to create
 
         # set a nb of classes by default if not provided in nb_classes
         self.default_nb = int(round(np.sqrt(self.df.shape[0])))  
+
+        if len(nb_classes) == 0: 
+            nb_classes = {col: self.default_nb for col in self.columns}
+        self.nb_classes = nb_classes  # nb of classes to create
 
         # extrema of time series 
         self.extrema = df.agg(['min', 'max']).to_dict() 
@@ -51,7 +55,8 @@ class DumbDiscretizer(object):
         Function that learns how to map a value of the initial dataframe 
         to an index of the pgmpy object. 
         """
-        for column in self.df.columns:
+        # for column in self.df.columns:
+        for column in self.nb_classes.keys():
             self.column_indexer(column)
         
         return self
